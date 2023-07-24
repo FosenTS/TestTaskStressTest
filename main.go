@@ -58,42 +58,56 @@ func NewConfig() *Config {
 	}
 }
 
-var Responce_list []int
+type Check struct {
+	timeCheck  int
+	statusCode int
+	volume     int
+}
 
-func fetchApi(req *http.Request) {
+var Responce_list []Check
 
-	client := http.Client{
-		Timeout: 5 * time.Second,
-	}
+func fetchApi(api string) {
 
-	resp, err := client.Do(req)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, api, nil)
 	if err != nil {
 		log.Println(err)
 		return
 	}
 
-	Responce_list = append(Responce_list, resp.StatusCode)
+	start := time.Now()
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	elarsed := time.Since(start).Milliseconds()
+
+	Responce_list = append(Responce_list, Check{
+		timeCheck:  int(elarsed),
+		statusCode: resp.StatusCode,
+		volume:     int(resp.ContentLength),
+	})
+
+}
+
+func check(api string, amount int) {
+	for i := 0; i < amount; i++ {
+		go fetchApi(api)
+	}
+	log.Print("Результаты чека:\n")
+	for i := 0; i < len(Responce_list); i++ {
+		fmt.Println("Время запроса: " + strconv.Itoa(Responce_list[i].timeCheck) + "мс Статус код: " + strconv.Itoa(Responce_list[i].statusCode) + " Объем: " + strconv.Itoa(Responce_list[i].volume))
+	}
 }
 
 func main() {
 	config := NewConfig()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
 	for {
-		for i := 0; i < config.Amount_parallelization; i++ {
-
-			req, err := http.NewRequestWithContext(ctx, http.MethodGet, config.Api, nil)
-			if err != nil {
-				log.Println(err)
-			}
-
-			go fetchApi(req)
-		}
-
-		log.Println("Результаты тестрования:")
-		fmt.Println(Responce_list)
+		check(config.Api, config.Amount_parallelization)
 		time.Sleep(time.Duration(config.Repetition_time) * time.Second)
 	}
 }
