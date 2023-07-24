@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -95,9 +96,17 @@ func fetchApi(api string) {
 }
 
 func check(api string, amount int) {
+
+	wg := sync.WaitGroup{}
+
 	for i := 0; i < amount; i++ {
 		go fetchApi(api)
 	}
+
+	go func() {
+		wg.Wait()
+	}()
+
 	log.Print("Результаты чека:\n")
 	for i := 0; i < len(Responce_list); i++ {
 		fmt.Println("Время запроса: " + strconv.Itoa(Responce_list[i].timeCheck) + "мс Статус код: " + strconv.Itoa(Responce_list[i].statusCode) + " Объем: " + strconv.Itoa(Responce_list[i].volume))
@@ -106,14 +115,25 @@ func check(api string, amount int) {
 }
 
 func updateFile() {
-	line := ""
-	for _, v := range Responce_list {
-		line += "Время запроса: " + strconv.Itoa(v.timeCheck) + "мс Статус код: " + strconv.Itoa(v.statusCode) + " Объем: " + strconv.Itoa(v.volume) + "\n"
-	}
-	if err := ioutil.WriteFile("check-results.txt", []byte(line), 0644); err != nil {
+
+	file, err := ioutil.ReadFile("check-results.txt")
+	if err != nil {
 		log.Println(err)
 		return
 	}
+
+	fileString := string(file)
+
+	t := time.Now()
+	line := "[" + t.Format("2006-11-10 15:04") + "] Результаты чека:\n"
+	for _, v := range Responce_list {
+		line += "Время запроса: " + strconv.Itoa(v.timeCheck) + "мс Статус код: " + strconv.Itoa(v.statusCode) + " Объем: " + strconv.Itoa(v.volume) + "\n"
+	}
+	if err := ioutil.WriteFile("check-results.txt", []byte(fileString+line), 0644); err != nil {
+		log.Println(err)
+		return
+	}
+	Responce_list = Responce_list[:0]
 }
 func main() {
 	config := NewConfig()
