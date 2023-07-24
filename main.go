@@ -68,7 +68,9 @@ type Check struct {
 
 var Responce_list []Check
 
-func fetchApi(api string) {
+func fetchApi(wg *sync.WaitGroup, m *sync.Mutex, api string) {
+
+	m.Lock()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -92,20 +94,22 @@ func fetchApi(api string) {
 		statusCode: resp.StatusCode,
 		volume:     int(resp.ContentLength),
 	})
+	m.Unlock()
+	wg.Done()
 
 }
 
 func check(api string, amount int) {
 
 	wg := sync.WaitGroup{}
+	m := sync.Mutex{}
 
 	for i := 0; i < amount; i++ {
-		go fetchApi(api)
+		wg.Add(1)
+		go fetchApi(&wg, &m, api)
 	}
 
-	go func() {
-		wg.Wait()
-	}()
+	wg.Wait()
 
 	log.Print("Результаты чека:\n")
 	for i := 0; i < len(Responce_list); i++ {
