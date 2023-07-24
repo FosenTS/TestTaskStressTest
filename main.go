@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -101,8 +102,19 @@ func check(api string, amount int) {
 	for i := 0; i < len(Responce_list); i++ {
 		fmt.Println("Время запроса: " + strconv.Itoa(Responce_list[i].timeCheck) + "мс Статус код: " + strconv.Itoa(Responce_list[i].statusCode) + " Объем: " + strconv.Itoa(Responce_list[i].volume))
 	}
+	updateFile()
 }
 
+func updateFile() {
+	line := ""
+	for _, v := range Responce_list {
+		line += "Время запроса: " + strconv.Itoa(v.timeCheck) + "мс Статус код: " + strconv.Itoa(v.statusCode) + " Объем: " + strconv.Itoa(v.volume) + "\n"
+	}
+	if err := ioutil.WriteFile("check-results.txt", []byte(line), 0644); err != nil {
+		log.Println(err)
+		return
+	}
+}
 func main() {
 	config := NewConfig()
 
